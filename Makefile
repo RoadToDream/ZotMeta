@@ -26,4 +26,4 @@ $(BUILD_DIR):
 
 # Clean up generated files
 clean:
-	rm -rf $(BUILD_DIR) updates.json
+	rm -rf $(BUILD_DIR) $(JSON_FILE)
