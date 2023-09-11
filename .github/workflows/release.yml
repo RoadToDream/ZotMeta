@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Update version info
+      run: |
+          tag=${GITHUB_REF#refs/tags/v}
+          echo "Generating release ${tag}..."
+          sed -i "s#<em:version>[0-9]*.[0-9]*</em:version>#<em:version>${tag}</em:version>#g" src/install.rdf
+          sed -i "s#\"version\": \"[0-9]*.[0-9]*\"#\"version\": \"${tag}\"#g" src/manifest.json
+
+    - name: Make
+      run: make clean && make
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ZotMeta
+        path: build/zotmeta*.xpi
+    
+    - name: Commit updates.json
+      run: |
+          git config --global user.name 'Jiawei Duan'
+          git config --global user.email 'jiawei.duan@outlook.com'
+          git commit -am "Commit new updates.json from Github Actions"
+          git push origin HEAD:master
+          
+    - name: Release add-on
+      uses: softprops/action-gh-release@v1
+      with: 
+        files: build/zotmeta*.xpi
