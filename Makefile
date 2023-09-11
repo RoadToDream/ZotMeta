@@ -1,7 +1,7 @@
 # Define variables
 SRC_DIR := src
 BUILD_DIR := build
-VERSION:=$(shell grep em:version src/install.rdf | head -n 1 | sed -e 's/ *<em:version>//' -e 's/<\/em:version>//')
+VERSION:=$(shell grep em:version src/install.rdf | sed -n 's/.*<em:version>\(.*\)<\/em:version>.*/\1/p')
 ZIP_FILE_NAME := zotmeta-$(VERSION).xpi
 ZIP_FILE_PATH := $(BUILD_DIR)/$(ZIP_FILE_NAME)
 JSON_FILE := updates.json
