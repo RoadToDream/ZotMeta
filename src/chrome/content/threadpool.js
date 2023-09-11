@@ -28,7 +28,7 @@ class ThreadPool {
         };
 
         this.jobsRunning.setOnChangeCallback(async () => {
-            await this.fill_pool();
+            await this.fillPool();
         });
     }
 
@@ -37,7 +37,7 @@ class ThreadPool {
     }
 
     execute() {
-        this.fill_pool();
+        this.fillPool();
     }
 
     async wait() {
@@ -46,14 +46,14 @@ class ThreadPool {
         }
     }
 
-    async fill_pool() {
+    async fillPool() {
         for (let index = 0; index < this.numThreads - this.jobsRunning.value; index++) {
             if (this.jobs.length === 0) {
                 break;
             }
-            const selected_job = this.jobs.shift();
+            const selectedJob = this.jobs.shift();
             this.jobsRunning.value++;
-            await selected_job();
+            await selectedJob();
             this.jobsRunning.value--;
         }
     }

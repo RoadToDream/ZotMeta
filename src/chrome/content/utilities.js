@@ -28,8 +28,8 @@ Utilities = {
         
     },
     publishProgress(handle, progress, message) {
-        var validated_progress = Math.min(Math.max(progress, 0), 100);
-        handle.progress.setProgress(validated_progress);
+        var validatedProgress = Math.min(Math.max(progress, 0), 100);
+        handle.progress.setProgress(validatedProgress);
         handle.progress.setText(message);
         if (progress === 100) {
             var successIcon = "chrome://zotero/skin/tick.png";
@@ -51,19 +51,19 @@ Utilities = {
         ]);
     },
 
-    safeGetFromJson(json, key_array) {
+    safeGetFromJson(json, keyArray) {
         if (!json) {
             return null;
         }
-        var json_loc = json;
-        for (const key of key_array) {
-            if (key in json_loc) {
-                json_loc = json_loc[key];
+        var jsonLoc = json;
+        for (const key of keyArray) {
+            if (key in jsonLoc) {
+                jsonLoc = jsonLoc[key];
             } else {
                 return null;
             }
         }
-        return json_loc;
+        return jsonLoc;
     },
     
     isEmpty(value) {
