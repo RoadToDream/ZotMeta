@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+
+<overlay id="zotmeta-overlay"
+        xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+    <script src="overlay.js"/>
+    <script src="threadpool.js"/>
+    <script src="utilities.js"/>
+    <script src="zotmeta.js"/>
+</overlay>
