@@ -17,7 +17,8 @@ $(ZIP_FILE_PATH): | $(BUILD_DIR)
 # Target to generate a updates.json file
 $(JSON_FILE): | $(BUILD_DIR)
 	jq ".addons[\"zotmeta@roadtodream.tech\"].updates[0].update_hash = \"sha256:`shasum -a 256 $(ZIP_FILE_PATH) | cut -d' ' -f1`\"" updates.json.tmpl | \
-		jq ".addons[\"zotmeta@roadtodream.tech\"].updates[0].update_link = \"https://github.com/RoadToDream/ZotMeta/releases/download/v$(VERSION)/$(ZIP_FILE_NAME)\"" > $@
+		jq ".addons[\"zotmeta@roadtodream.tech\"].updates[0].update_link = \"https://github.com/RoadToDream/ZotMeta/releases/download/v$(VERSION)/$(ZIP_FILE_NAME)\"" | \
+		jq ".addons[\"zotmeta@roadtodream.tech\"].updates[0].version = \"${VERSION}\"" > $@
 
 # Create the build directory if it doesn't exist
 $(BUILD_DIR):
