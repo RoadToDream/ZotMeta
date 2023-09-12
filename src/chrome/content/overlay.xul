@@ -5,5 +5,7 @@
     <script src="overlay.js"/>
     <script src="threadpool.js"/>
     <script src="utilities.js"/>
+    <script src="journal.js"/>
+    <script src="book.js"/>
     <script src="zotmeta.js"/>
 </overlay>

@@ -29,7 +29,7 @@ ZotMeta = {
         menuitem.setAttribute('type', 'button');
         menuitem.setAttribute('data-l10n-id', 'update-metadata');
         menuitem.addEventListener('command', () => {
-            ZotMeta.Journal.updateSelectedItemsMetadata();
+            Journal.updateSelectedItemsMetadata();
         });
         doc.getElementById('zotero-itemmenu').appendChild(menuitem);
         this.storeAddedElement(menuitem);

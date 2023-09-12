@@ -1,4 +1,4 @@
-ZotMeta.Journal = {
+Book = {
     generateAuthors (author) {
         var newAuthorList = [];
         if (author) {
