@@ -29,7 +29,7 @@ ZotMeta = {
         menuitem.setAttribute('type', 'button');
         menuitem.setAttribute('data-l10n-id', 'update-metadata');
         menuitem.addEventListener('command', () => {
-            Journal.updateSelectedItemsMetadata();
+            this.updateSelectedItemsMetadata();
         });
         doc.getElementById('zotero-itemmenu').appendChild(menuitem);
         this.storeAddedElement(menuitem);
@@ -81,4 +81,43 @@ ZotMeta = {
             this.removeFromWindow(win);
         }
     },
+
+    async updateSelectedItemsMetadata() {
+        var items = Zotero.getActiveZoteroPane().getSelectedItems();
+        var itemCount = items.length;
+        if (itemCount === 0) {
+            Utilities.publishSuccess("Finished", "No item is selected.")
+        }
+        var progressHandle = Utilities.initializeProgress("Updating metadata for " + itemCount + " items...")
+
+        var pool = new ThreadPool(5);
+        var progress = 0;
+        var successCount = 0;
+        var failedCount = 0;
+        for (let i = 0; i < itemCount; i++) {
+            pool.submit(async () => {
+                var item = items[i];
+                var status;
+                if (item.itemTypeID === Zotero.ItemTypes.getID('book')) {
+                    status = await Book.updateMetadata(item);
+                } else if (item.itemTypeID === Zotero.ItemTypes.getID('journalArticle')) {
+                    status = await Journal.updateMetadata(item);
+                } else {
+                    status = 1;
+                }
+                if (status === 0) {
+                    successCount++;
+                } else if(status === 1) {
+                    failedCount++;
+                }
+                progress++;
+                var progressMapped = Math.round(progress / itemCount * 100);
+                Utilities.publishProgress(progressHandle, progressMapped, progress + " out of " + itemCount + " finished updating.");
+            });
+        }
+
+        pool.execute();
+        await pool.wait();
+        Utilities.publishProgress(progressHandle, 100, successCount + " items updated, " + failedCount + " items failed.", "Finished");
+    }
 };

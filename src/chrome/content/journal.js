@@ -1,14 +1,14 @@
 Journal = {    
-    generateAuthors (author) {
+    generateAuthors (authors) {
         var newAuthorList = [];
-        if (author) {
-            author.forEach(element => {
+        if (authors) {
+            authors.forEach(author => {
                 newAuthorList.push(
-                  {
-                    "firstName": element["given"],
-                    "lastName": element["family"],
-                    "creatorType": "author"
-                  }
+                    {
+                        "firstName": author["given"],
+                        "lastName": author["family"],
+                        "creatorType": "author"
+                    }
                 )
             });
         }
@@ -30,12 +30,12 @@ Journal = {
     getMetaData (item) {
         var doi = item.getField('DOI');
         if (item.itemTypeID !== Zotero.ItemTypes.getID('journalArticle')) {
-            Utilities.publishError("Unsupported Item Type", "Only Journal Article is supported.")
-            return;
+            // Utilities.publishError("Unsupported Item Type", "Only Journal Article is supported.")
+            return null;
         }
         if (!doi) {
             // Utilities.publishError("DOI not found", "DOI is required to retrieve metadata.")
-            return;
+            return null;
         }
 
         var url = 'http://dx.doi.org/' + doi;
@@ -99,36 +99,5 @@ Journal = {
         if (!Utilities.isEmpty(metaData["Language"]))    item.setField('language',metaData["Language"]);
         await item.saveTx();
         return 0;
-    },
-
-    async updateSelectedItemsMetadata() {
-        var items = Zotero.getActiveZoteroPane().getSelectedItems();
-        var itemCount = items.length;
-        if (itemCount === 0) {
-            Utilities.publishSuccess("Finished", "No item is selected.")
-        }
-        var progressHandle = Utilities.initializeProgress("Updating metadata for " + itemCount + " items...")
-
-        var pool = new ThreadPool(5);
-        var progress = 0;
-        var successCount = 0;
-        var failedCount = 0;
-        for (let i = 0; i < itemCount; i++) {
-            pool.submit(async () => { 
-                var status = await this.updateMetadata(items[i]);
-                if (status === 0) {
-                    successCount++;
-                } else if(status === 1) {
-                    failedCount++;
-                }
-                progress++;
-                var progressMapped = Math.round(progress / itemCount * 100);
-                await Utilities.publishProgress(progressHandle, progressMapped, progress + " out of " + itemCount + " finished updating.");
-            });
-        }
-
-        pool.execute();
-        await pool.wait();
-        await Utilities.publishSuccess("Finished", successCount + " items updated, " + failedCount + " items failed.");
     }
 }
