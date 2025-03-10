@@ -15,6 +15,26 @@ Journal = {
         return newAuthorList;
     },
 
+    decodeHTMLEntities(text) {
+        if (typeof text !== 'string' || !text) return text;
+        
+        // 实体映射表（可扩展）
+        const entities = {
+            '&amp;': '&',
+            '&lt;': '<',
+            '&gt;': '>',
+            '&quot;': '"',
+            '&#39;': "'",
+            '&nbsp;': ' ',
+            // 添加其他常见实体...
+        };
+    
+        // 一次性替换所有已知实体
+        return text.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (match, entity) => {
+            return entities[match] || match;
+        });
+    },
+
     generateDate (date) {
         if (!date) {
             return null;
@@ -59,14 +79,14 @@ Journal = {
                 }
             })
             .then(dataJson => {
-                var Title = Utilities.safeGetFromJson(dataJson, ["title"]);
+                var Title = this.decodeHTMLEntities(Utilities.safeGetFromJson(dataJson, ["title"]));
                 var Authors = this.generateAuthors(Utilities.safeGetFromJson(dataJson, ["author"]));
-                var Publication = Utilities.safeGetFromJson(dataJson, ["container-title"]);
+                var Publication = this.decodeHTMLEntities(Utilities.safeGetFromJson(dataJson, ["container-title"]));
                 var Volume = Utilities.safeGetFromJson(dataJson, ["volume"]);
                 var Issue = Utilities.safeGetFromJson(dataJson, ["issue"]);
                 var Pages = Utilities.safeGetFromJson(dataJson, ["page"]);
                 var PublishDate = this.generateDate(Utilities.safeGetFromJson(dataJson, ["published", "date-parts"]));
-                var JournalAbbr = Utilities.safeGetFromJson(dataJson, ["container-title-short"]);
+                var JournalAbbr = this.decodeHTMLEntities(Utilities.safeGetFromJson(dataJson, ["container-title-short"]));
                 var Language = Utilities.safeGetFromJson(dataJson, ["language"]);
                 return {
                             "Title": Title ? Title : "",
