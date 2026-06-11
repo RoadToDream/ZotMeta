@@ -18,12 +18,13 @@ ZotMeta is a Zotero plugin for enriching item metadata in bulk. It updates journ
 
 Screenshots can be stored in [`docs/screenshots`](docs/screenshots).
 
-Suggested screenshots:
+### Progress Panel
 
-- ZotMeta item context menu
-- Batch metadata progress panel
-- ZotMeta settings panel
-- Added items activity grid
+![ZotMeta progress panel](docs/screenshots/ProgressBar.png)
+
+### Settings Panel
+
+![ZotMeta settings panel](docs/screenshots/Settings.png)
 
 ## Installation
 
