@@ -43,6 +43,16 @@ ZotMeta = {
         doc.getElementById('zotero-itemmenu').appendChild(menuitem);
         this.storeAddedElement(menuitem);
 
+        let createParentMenuitem = doc.createElementNS(XUL_NS, 'menuitem');
+        createParentMenuitem.id = 'zotmeta-create-parent-item';
+        createParentMenuitem.setAttribute('type', 'button');
+        createParentMenuitem.setAttribute('label', 'Create Parent Item');
+        createParentMenuitem.addEventListener('command', () => {
+            this.createParentItemsForSelectedAttachments();
+        });
+        doc.getElementById('zotero-itemmenu').appendChild(createParentMenuitem);
+        this.storeAddedElement(createParentMenuitem);
+
         // Use strings from zotmeta.ftl (Fluent) in Zotero 7
         if (Zotero.platformMajorVersion >= 102) {
             window.MozXULElement.insertFTLIfNeeded("zotmeta.ftl");
@@ -120,6 +130,22 @@ ZotMeta = {
             return Arxiv;
         }
         return null;
+    },
+
+    async prepareItemForMetadataUpdate(item) {
+        if (!Utilities.isRegularItem(item)) {
+            return;
+        }
+        var needsDOI = item.itemTypeID === Zotero.ItemTypes.getID('journalArticle') && !item.getField('DOI');
+        var needsArxiv = item.itemTypeID === Zotero.ItemTypes.getID('preprint') && !Arxiv.getArxivID(item);
+        if (!needsDOI && !needsArxiv) {
+            return;
+        }
+
+        var identifiers = await Utilities.extractIdentifiersFromItemAttachments(item);
+        if (Utilities.applyIdentifiersToItem(item, identifiers)) {
+            await Utilities.saveItemTx(item);
+        }
     },
 
     getActiveWindow(pane = null) {
@@ -239,6 +265,7 @@ ZotMeta = {
     async processUpdateTask(task) {
         var item = task.item;
         var batch = task.batch;
+        await this.prepareItemForMetadataUpdate(item);
         var updater = this.getMetadataUpdater(item);
         if (!updater) {
             await this.recordUpdateResult(batch, item, 2);
@@ -318,5 +345,96 @@ ZotMeta = {
             return;
         }
         this.enqueueUpdateBatch(items, window);
+    },
+
+    getAttachmentTitle(attachment) {
+        if (attachment.getField && attachment.getField('title')) {
+            return attachment.getField('title');
+        }
+        if (attachment.attachmentFilename) {
+            return attachment.attachmentFilename.replace(/\.pdf$/i, "");
+        }
+        return "Untitled attachment";
+    },
+
+    getParentItemType(identifiers) {
+        if (identifiers.DOI) {
+            return 'journalArticle';
+        }
+        if (identifiers.arxivID) {
+            return 'preprint';
+        }
+        return 'document';
+    },
+
+    async createParentItemForAttachment(attachment) {
+        if (!Utilities.isPDFAttachment(attachment)) {
+            return 2;
+        }
+        if (attachment.parentID) {
+            return 2;
+        }
+
+        var identifiers = await Utilities.extractIdentifiersFromAttachment(attachment);
+        var parent = new Zotero.Item(this.getParentItemType(identifiers));
+        parent.libraryID = attachment.libraryID;
+        parent.setField('title', this.getAttachmentTitle(attachment));
+        Utilities.applyIdentifiersToItem(parent, identifiers);
+        await Utilities.saveItemTx(parent);
+
+        attachment.parentID = parent.id;
+        await Utilities.saveItemTx(attachment);
+
+        var updater = this.getMetadataUpdater(parent);
+        if (updater) {
+            var status = await this.updateItemWithRetry(updater, parent);
+            await Utilities.markItemUpdateStatus(parent, status);
+            return status;
+        }
+        return 0;
+    },
+
+    async createParentItemsForSelectedAttachments() {
+        var pane = Zotero.getActiveZoteroPane();
+        var selectedItems = pane.getSelectedItems();
+        var attachments = selectedItems.filter(item => Utilities.isPDFAttachment(item));
+        if (attachments.length === 0) {
+            Utilities.publishSuccess("No parent items created", "Select one or more PDF attachments first.");
+            return;
+        }
+
+        var created = 0;
+        var failed = 0;
+        var skipped = 0;
+        for (let attachment of attachments) {
+            try {
+                var status = await this.createParentItemForAttachment(attachment);
+                if (status === 2) {
+                    skipped++;
+                } else if (status === 0) {
+                    created++;
+                } else {
+                    failed++;
+                }
+            } catch (error) {
+                failed++;
+                this.log("Failed to create parent item: " + error);
+            }
+        }
+
+        var summary = created + " parent items created";
+        if (failed > 0) {
+            summary += ", " + failed + " failed";
+        }
+        if (skipped > 0) {
+            summary += ", " + skipped + " skipped";
+        }
+        summary += ".";
+        var title = failed > 0 ? "Parent item creation finished with issues" : "Parent items created";
+        if (failed > 0) {
+            Utilities.publishError(title, summary);
+        } else {
+            Utilities.publishSuccess(title, summary);
+        }
     }
 };

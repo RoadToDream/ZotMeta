@@ -4,6 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const repoRoot = path.resolve(__dirname, '..');
+let nextItemID = 1000;
 
 function loadScripts(files) {
     const progressWindows = [];
@@ -67,6 +68,22 @@ function loadScripts(files) {
                     return type;
                 }
             },
+            Items: {
+                byID: {},
+                get(id) {
+                    return this.byID[id];
+                }
+            },
+            Fulltext: {
+                getItemCacheFile(item) {
+                    return item.cacheText ? { exists: () => true, item } : null;
+                }
+            },
+            File: {
+                async getContentsAsync(cacheFile) {
+                    return cacheFile.item.cacheText || '';
+                }
+            },
             ProgressWindow: MockProgressWindow,
             debug() {}
         },
@@ -85,7 +102,8 @@ function loadScripts(files) {
 
 function makeItem(fields, itemTypeID = 'preprint') {
     return {
-        id: 42,
+        id: nextItemID++,
+        libraryID: 1,
         itemTypeID,
         fields: Object.assign({}, fields),
         creators: [],
@@ -111,10 +129,31 @@ function makeItem(fields, itemTypeID = 'preprint') {
         removeTag(tag) {
             this.tags = this.tags.filter(candidate => candidate !== tag);
         },
+        isRegularItem() {
+            return true;
+        },
+        isAttachment() {
+            return false;
+        },
+        getAttachments() {
+            return this.attachmentIDs || [];
+        },
         async saveTx() {
             this.saved = true;
         }
     };
+}
+
+function makeAttachment(fields = {}) {
+    const attachment = makeItem(fields, 'attachment');
+    attachment.itemTypeID = 'attachment';
+    attachment.attachmentContentType = 'application/pdf';
+    attachment.attachmentFilename = fields.filename || fields.title || 'attachment.pdf';
+    attachment.parentID = fields.parentID || null;
+    attachment.cacheText = fields.cacheText || '';
+    attachment.isRegularItem = () => false;
+    attachment.isAttachment = () => true;
+    return attachment;
 }
 
 function plain(value) {
@@ -339,6 +378,65 @@ async function testStatusTags(context) {
     assert.deepEqual(skippedItem.tags, ['ZotMeta: Failed']);
 }
 
+async function testIdentifierExtraction(context) {
+    const { Utilities, Zotero, ZotMeta } = context;
+    const identifiers = Utilities.extractIdentifiersFromText(
+        'arXiv:2209.14577v1 [stat.ML]\nDOI: 10.1108/03321640510615607.'
+    );
+    assert.equal(identifiers.arxivID, '2209.14577v1');
+    assert.equal(identifiers.DOI, '10.1108/03321640510615607');
+
+    const attachment = makeAttachment({
+        title: 'paper.pdf',
+        cacheText: 'Published with doi 10.1234/ABC.DEF and other text.'
+    });
+    Zotero.Items.byID[attachment.id] = attachment;
+
+    const item = makeItem({ DOI: '' }, 'journalArticle');
+    item.attachmentIDs = [attachment.id];
+    await ZotMeta.prepareItemForMetadataUpdate(item);
+    assert.equal(item.fields.DOI, '10.1234/ABC.DEF');
+    assert.equal(item.saved, true);
+}
+
+async function testCreateParentItem(context) {
+    const { Zotero, ZotMeta } = context;
+    const createdItems = [];
+
+    Zotero.Item = function(itemType) {
+        const item = makeItem({}, itemType);
+        createdItems.push(item);
+        return item;
+    };
+
+    const originalUpdateItemWithRetry = ZotMeta.updateItemWithRetry;
+    ZotMeta.updateItemWithRetry = async () => 0;
+
+    const arxivAttachment = makeAttachment({
+        title: '2209.14577v1.pdf',
+        filename: '2209.14577v1.pdf',
+        cacheText: 'arXiv:2209.14577v1 [stat.ML]'
+    });
+    const arxivStatus = await ZotMeta.createParentItemForAttachment(arxivAttachment);
+    assert.equal(arxivStatus, 0);
+    assert.equal(createdItems[0].itemTypeID, 'preprint');
+    assert.equal(createdItems[0].fields.archiveID, 'arXiv:2209.14577v1');
+    assert.equal(arxivAttachment.parentID, createdItems[0].id);
+
+    const dummyAttachment = makeAttachment({
+        title: 'unknown.pdf',
+        filename: 'unknown.pdf',
+        cacheText: 'No identifiers here'
+    });
+    const dummyStatus = await ZotMeta.createParentItemForAttachment(dummyAttachment);
+    assert.equal(dummyStatus, 0);
+    assert.equal(createdItems[1].itemTypeID, 'document');
+    assert.equal(createdItems[1].fields.title, 'unknown.pdf');
+    assert.deepEqual(createdItems[1].tags, []);
+
+    ZotMeta.updateItemWithRetry = originalUpdateItemWithRetry;
+}
+
 async function main() {
     const context = loadScripts([
         'src/chrome/content/utilities.js',
@@ -412,6 +510,8 @@ async function main() {
     await testSharedUpdatePopup(context);
     await testUpdateRetry(context);
     await testStatusTags(context);
+    await testIdentifierExtraction(context);
+    await testCreateParentItem(context);
 
     console.log('All tests passed');
 }

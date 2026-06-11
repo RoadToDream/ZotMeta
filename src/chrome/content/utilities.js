@@ -3,6 +3,8 @@ Utilities = {
     itemSaveQueue: Promise.resolve(),
     failedTag: "ZotMeta: Failed",
     skippedTag: "ZotMeta: Skipped",
+    DOI_RE: /\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i,
+    ARXIV_RE: /\b(?:arxiv\s*(?:id)?\s*[:：]\s*)?((?:[a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?)\b/i,
 
     createElement(doc, tagName, className = null, text = null) {
         var element = doc.createElementNS("http://www.w3.org/1999/xhtml", tagName);
@@ -427,6 +429,116 @@ Utilities = {
 
     delay(milliseconds) {
         return new Promise(resolve => setTimeout(resolve, milliseconds));
+    },
+
+    isRegularItem(item) {
+        return item && typeof item.isRegularItem === 'function' && item.isRegularItem();
+    },
+
+    isAttachment(item) {
+        return item && typeof item.isAttachment === 'function' && item.isAttachment();
+    },
+
+    isPDFAttachment(item) {
+        return this.isAttachment(item)
+            && item.attachmentContentType === "application/pdf";
+    },
+
+    cleanDOI(doi) {
+        if (!doi) {
+            return null;
+        }
+        return doi.replace(/[.,;:)]+$/g, "");
+    },
+
+    extractIdentifiersFromText(text) {
+        if (!text) {
+            return {
+                DOI: null,
+                arxivID: null
+            };
+        }
+
+        var doiMatch = text.match(this.DOI_RE);
+        var arxivMatch = text.match(this.ARXIV_RE);
+        return {
+            DOI: doiMatch ? this.cleanDOI(doiMatch[0]) : null,
+            arxivID: arxivMatch ? arxivMatch[1] : null
+        };
+    },
+
+    async getAttachmentFullText(attachment) {
+        if (!this.isPDFAttachment(attachment) || !Zotero.Fulltext || !Zotero.File) {
+            return "";
+        }
+
+        try {
+            var cacheFile = Zotero.Fulltext.getItemCacheFile(attachment);
+            if (!cacheFile) {
+                return "";
+            }
+            if (typeof cacheFile.exists === 'function' && !cacheFile.exists()) {
+                return "";
+            }
+            return await Zotero.File.getContentsAsync(cacheFile);
+        } catch (error) {
+            return "";
+        }
+    },
+
+    async extractIdentifiersFromAttachment(attachment) {
+        var text = await this.getAttachmentFullText(attachment);
+        return this.extractIdentifiersFromText(text);
+    },
+
+    getItemAttachments(item) {
+        if (!item || typeof item.getAttachments !== 'function') {
+            return [];
+        }
+        var attachmentIDs = item.getAttachments();
+        var attachments = [];
+        for (let id of attachmentIDs) {
+            var attachment = Zotero.Items.get(id);
+            if (attachment) {
+                attachments.push(attachment);
+            }
+        }
+        return attachments;
+    },
+
+    async extractIdentifiersFromItemAttachments(item) {
+        var attachments = this.getItemAttachments(item);
+        for (let attachment of attachments) {
+            var identifiers = await this.extractIdentifiersFromAttachment(attachment);
+            if (identifiers.DOI || identifiers.arxivID) {
+                return identifiers;
+            }
+        }
+        return {
+            DOI: null,
+            arxivID: null
+        };
+    },
+
+    applyIdentifiersToItem(item, identifiers) {
+        var changed = false;
+        if (identifiers.DOI && !item.getField('DOI')) {
+            item.setField('DOI', identifiers.DOI);
+            changed = true;
+        }
+        if (identifiers.arxivID && !item.getField('archiveID')) {
+            item.setField('archiveID', "arXiv:" + identifiers.arxivID);
+            changed = true;
+        }
+        if (identifiers.arxivID && !item.getField('repository')) {
+            item.setField('repository', "arXiv");
+            changed = true;
+        }
+        if (identifiers.arxivID && !item.getField('url')) {
+            item.setField('url', "https://arxiv.org/abs/" + identifiers.arxivID);
+            changed = true;
+        }
+        return changed;
     },
 
     getItemDisplayTitle(item) {
