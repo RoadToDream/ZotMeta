@@ -10,12 +10,23 @@ function install() {
 
 async function startup({ id, version, rootURI }) {
     log("Starting");
+
+    if (Zotero.PreferencePanes && typeof Zotero.PreferencePanes.register === 'function') {
+        Zotero.PreferencePanes.register({
+            pluginID: id,
+            id: 'zotmeta-prefpane',
+            label: 'ZotMeta',
+            src: rootURI + 'preferences.xhtml',
+            scripts: [rootURI + 'preferences.js']
+        });
+    }
     
     // Load chrome/content file directly via file:/// URL
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/utilities.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/threadpool.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/journal.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/book.js');
+    Services.scriptloader.loadSubScript(rootURI + 'chrome/content/arxiv.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/zotmeta.js');
     ZotMeta.init({ id, version, rootURI });
     ZotMeta.addToAllWindows();

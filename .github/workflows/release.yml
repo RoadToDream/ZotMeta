@@ -5,6 +5,10 @@ on:
     tags:
       - "v[0-9]*.[0-9]*"
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   build:
 
@@ -12,11 +16,12 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Update version info
       run: |
           tag=${GITHUB_REF#refs/tags/v}
+          echo "RELEASE_VERSION=${tag}" >> "$GITHUB_ENV"
           echo "Generating release ${tag}..."
           sed -i "s#<em:version>[0-9]*.[0-9]*</em:version>#<em:version>${tag}</em:version>#g" src/install.rdf
           sed -i "s#\"version\": \"[0-9]*.[0-9]*\"#\"version\": \"${tag}\"#g" src/manifest.json
@@ -25,19 +30,26 @@ jobs:
       run: make clean && make
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ZotMeta
         path: build/zotmeta*.xpi
     
-    - name: Commit updates.json
-      run: |
-          git config --global user.name 'Jiawei Duan'
-          git config --global user.email 'jiawei.duan@outlook.com'
-          git commit -am "Commit new updates.json from Github Actions"
-          git push origin HEAD:master
-          
     - name: Release add-on
-      uses: softprops/action-gh-release@v1
-      with: 
+      uses: softprops/action-gh-release@v2
+      with:
         files: build/zotmeta*.xpi
+
+    - name: Open updates.json PR
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: release/v${{ env.RELEASE_VERSION }}-updates
+        base: master
+        title: "Update ZotMeta release metadata for v${{ env.RELEASE_VERSION }}"
+        commit-message: "Update release metadata for v${{ env.RELEASE_VERSION }}"
+        body: |
+          Updates `updates.json` after publishing ZotMeta v${{ env.RELEASE_VERSION }}.
+
+          Merge this PR to notify existing users about the new release.
+        add-paths: updates.json

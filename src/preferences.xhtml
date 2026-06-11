@@ -1,0 +1,326 @@
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml"
+      id="zotmeta-preferences">
+    <html:style>
+        #zotmeta-preferences {
+            box-sizing: border-box;
+            color: #20242b;
+            font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            padding: 8px 0 18px;
+        }
+
+        .zotmeta-pref-header {
+            align-items: center;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .zotmeta-pref-logo {
+            background: linear-gradient(135deg, #2563eb, #14b8a6);
+            border-radius: 8px;
+            height: 34px;
+            width: 34px;
+        }
+
+        .zotmeta-pref-title {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .zotmeta-pref-subtitle {
+            color: #667085;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .zotmeta-pref-section {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .zotmeta-pref-section-card {
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, .08);
+            border-radius: 8px;
+            display: grid;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .zotmeta-pref-section-card-head {
+            align-items: baseline;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .zotmeta-pref-section-card-title {
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .zotmeta-pref-section-card-meta {
+            color: #667085;
+            font-size: 12px;
+        }
+
+        .zotmeta-pref-activity-control {
+            align-items: center;
+            display: flex;
+            gap: 8px;
+        }
+
+        .zotmeta-pref-activity-year {
+            font-size: 24px;
+            font-weight: 750;
+            line-height: 1;
+            min-width: 64px;
+            text-align: center;
+        }
+
+        .zotmeta-pref-icon-button {
+            align-items: center;
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, .12);
+            border-radius: 7px;
+            color: #20242b;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            height: 28px;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            width: 28px;
+        }
+
+        .zotmeta-pref-icon-button:disabled {
+            color: #a3aab5;
+            cursor: default;
+            opacity: .55;
+        }
+
+        .zotmeta-pref-section-title {
+            color: #667085;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .zotmeta-pref-setting,
+        .zotmeta-pref-card,
+        .zotmeta-pref-info {
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, .08);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .zotmeta-pref-setting {
+            align-items: center;
+            display: flex;
+            gap: 12px;
+        }
+
+        .zotmeta-pref-setting-label {
+            flex: 0 0 auto;
+        }
+
+        .zotmeta-pref-setting input[type=range] {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .zotmeta-pref-number {
+            border: 1px solid rgba(0, 0, 0, .16);
+            border-radius: 6px;
+            font: inherit;
+            padding: 6px 8px;
+            width: 56px;
+        }
+
+        .zotmeta-pref-button {
+            align-items: center;
+            background: #2563eb;
+            border: 0;
+            border-radius: 7px;
+            color: white;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            font-weight: 650;
+            justify-content: center;
+            line-height: 1;
+            min-height: 32px;
+            padding: 7px 12px;
+        }
+
+        .zotmeta-pref-card-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .zotmeta-pref-card-value {
+            font-size: 22px;
+            font-weight: 750;
+            line-height: 1.1;
+            margin-bottom: 4px;
+        }
+
+        .zotmeta-pref-card-label,
+        .zotmeta-pref-info {
+            color: #667085;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .zotmeta-pref-link {
+            color: #2563eb;
+            font-weight: 650;
+            text-decoration: none;
+        }
+
+        .zotmeta-pref-type-list {
+            display: grid;
+            gap: 7px;
+        }
+
+        .zotmeta-pref-type-row {
+            align-items: center;
+            display: grid;
+            font-size: 12px;
+            gap: 10px;
+            grid-template-columns: 150px 1fr 48px;
+        }
+
+        .zotmeta-pref-type-bar {
+            background: #e7eaf0;
+            border-radius: 999px;
+            height: 7px;
+            overflow: hidden;
+        }
+
+        .zotmeta-pref-type-fill {
+            background: linear-gradient(90deg, #2563eb, #14b8a6);
+            border-radius: 999px;
+            height: 100%;
+        }
+
+        .zotmeta-pref-activity-grid {
+            display: grid;
+            gap: 2px;
+            grid-auto-flow: column;
+            grid-template-rows: repeat(7, var(--zotmeta-activity-cell, 8px));
+            max-width: 100%;
+            overflow: hidden;
+            padding-bottom: 2px;
+        }
+
+        .zotmeta-pref-activity-cell {
+            background: #ebedf0;
+            border-radius: 2px;
+            height: var(--zotmeta-activity-cell, 8px);
+            width: var(--zotmeta-activity-cell, 8px);
+        }
+
+        .zotmeta-pref-activity-cell.level-1 {
+            background: #9be9a8;
+        }
+
+        .zotmeta-pref-activity-cell.level-2 {
+            background: #40c463;
+        }
+
+        .zotmeta-pref-activity-cell.level-3 {
+            background: #30a14e;
+        }
+
+        .zotmeta-pref-activity-cell.level-4 {
+            background: #216e39;
+        }
+
+        .zotmeta-pref-activity-cell.is-outside {
+            opacity: .28;
+        }
+
+        .zotmeta-pref-activity-cell.is-future {
+            background: #f2f4f7;
+            opacity: .55;
+        }
+    </html:style>
+
+    <html:div class="zotmeta-pref-header">
+        <html:div class="zotmeta-pref-logo"></html:div>
+        <html:div>
+            <html:div class="zotmeta-pref-title">ZotMeta</html:div>
+            <html:div class="zotmeta-pref-subtitle">Metadata enrichment, PDF identifier extraction, and batch update monitoring.</html:div>
+        </html:div>
+    </html:div>
+
+    <html:div class="zotmeta-pref-section">
+        <html:div class="zotmeta-pref-section-title">Settings</html:div>
+        <html:div class="zotmeta-pref-setting">
+            <html:div class="zotmeta-pref-setting-label">Concurrent update threads</html:div>
+            <html:input id="zotmeta-pref-concurrent-range" type="range" min="1" max="12"/>
+            <html:input id="zotmeta-pref-concurrent-number" class="zotmeta-pref-number" type="number" min="1" max="12"/>
+            <html:button id="zotmeta-pref-save" class="zotmeta-pref-button" type="button">Save</html:button>
+        </html:div>
+    </html:div>
+
+    <html:div class="zotmeta-pref-section">
+        <html:div class="zotmeta-pref-section-title">Library Stats</html:div>
+        <html:div class="zotmeta-pref-section-card">
+            <html:div class="zotmeta-pref-section-card-head">
+                <html:div class="zotmeta-pref-section-card-title">Item Stats</html:div>
+            </html:div>
+            <html:div id="zotmeta-pref-stats-cards" class="zotmeta-pref-card-grid">
+                <html:div class="zotmeta-pref-card">
+                    <html:div class="zotmeta-pref-card-value">...</html:div>
+                    <html:div class="zotmeta-pref-card-label">Total items</html:div>
+                </html:div>
+                <html:div class="zotmeta-pref-card">
+                    <html:div class="zotmeta-pref-card-value">...</html:div>
+                    <html:div class="zotmeta-pref-card-label">Attachments</html:div>
+                </html:div>
+                <html:div class="zotmeta-pref-card">
+                    <html:div class="zotmeta-pref-card-value">...</html:div>
+                    <html:div class="zotmeta-pref-card-label">Failed</html:div>
+                </html:div>
+                <html:div class="zotmeta-pref-card">
+                    <html:div class="zotmeta-pref-card-value">...</html:div>
+                    <html:div class="zotmeta-pref-card-label">Skipped</html:div>
+                </html:div>
+            </html:div>
+            <html:div id="zotmeta-pref-type-list" class="zotmeta-pref-type-list">
+                <html:div class="zotmeta-pref-info">Loading library stats...</html:div>
+            </html:div>
+        </html:div>
+        <html:div class="zotmeta-pref-section-card">
+            <html:div class="zotmeta-pref-section-card-head">
+                <html:div>
+                    <html:div class="zotmeta-pref-section-card-title">Added Items Activity</html:div>
+                    <html:div id="zotmeta-pref-activity-summary" class="zotmeta-pref-section-card-meta">Loading activity...</html:div>
+                </html:div>
+                <html:div class="zotmeta-pref-activity-control">
+                    <html:button id="zotmeta-pref-activity-previous" class="zotmeta-pref-icon-button" type="button" title="Previous year">&#8249;</html:button>
+                    <html:div id="zotmeta-pref-activity-year" class="zotmeta-pref-activity-year">...</html:div>
+                    <html:button id="zotmeta-pref-activity-next" class="zotmeta-pref-icon-button" type="button" title="Next year">&#8250;</html:button>
+                </html:div>
+            </html:div>
+            <html:div id="zotmeta-pref-activity-grid" class="zotmeta-pref-activity-grid"></html:div>
+        </html:div>
+    </html:div>
+
+    <html:div class="zotmeta-pref-section">
+        <html:div class="zotmeta-pref-section-title">Project</html:div>
+        <html:div id="zotmeta-pref-project" class="zotmeta-pref-info">
+            <html:a class="zotmeta-pref-link" href="https://github.com/RoadToDream/ZotMeta">RoadToDream/ZotMeta</html:a>
+            <html:span> - Star ZotMeta if it helps.</html:span>
+        </html:div>
+    </html:div>
+</vbox>
