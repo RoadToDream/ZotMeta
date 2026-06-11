@@ -10,6 +10,16 @@ function install() {
 
 async function startup({ id, version, rootURI }) {
     log("Starting");
+
+    if (Zotero.PreferencePanes && typeof Zotero.PreferencePanes.register === 'function') {
+        Zotero.PreferencePanes.register({
+            pluginID: id,
+            id: 'zotmeta-prefpane',
+            label: 'ZotMeta',
+            src: rootURI + 'preferences.xhtml',
+            scripts: [rootURI + 'preferences.js']
+        });
+    }
     
     // Load chrome/content file directly via file:/// URL
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/utilities.js');

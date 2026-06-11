@@ -59,6 +59,19 @@ function loadScripts(files) {
         console,
         setTimeout,
         clearTimeout,
+        Services: {
+            prefs: {
+                values: {},
+                getIntPref(name, fallback) {
+                    return Object.prototype.hasOwnProperty.call(this.values, name)
+                        ? this.values[name]
+                        : fallback;
+                },
+                setIntPref(name, value) {
+                    this.values[name] = value;
+                }
+            }
+        },
         fetch: async () => {
             throw new Error('Unexpected fetch call');
         },
@@ -66,12 +79,19 @@ function loadScripts(files) {
             ItemTypes: {
                 getID(type) {
                     return type;
+                },
+                getName(type) {
+                    return type;
                 }
             },
             Items: {
                 byID: {},
+                all: [],
                 get(id) {
                     return this.byID[id];
+                },
+                getAll() {
+                    return this.all;
                 }
             },
             Fulltext: {
@@ -85,6 +105,14 @@ function loadScripts(files) {
                 }
             },
             ProgressWindow: MockProgressWindow,
+            Utilities: {
+                Internal: {
+                    openedPreferenceIDs: [],
+                    openPreferences(paneID) {
+                        this.openedPreferenceIDs.push(paneID);
+                    }
+                }
+            },
             debug() {}
         },
         __progressWindows: progressWindows
@@ -161,6 +189,110 @@ function plain(value) {
 }
 
 function createFakeWindow() {
+    class FakeElement {
+        constructor(ownerDocument, tagName) {
+            this.ownerDocument = ownerDocument;
+            this.tagName = tagName;
+            this.children = [];
+            this.parentNode = null;
+            this.style = {};
+            this.attributes = {};
+            this.textContent = '';
+            this.className = '';
+            this.id = '';
+            this.listeners = {};
+            this.classList = {
+                values: [],
+                add: (...classes) => {
+                    for (const className of classes) {
+                        if (!this.classList.values.includes(className)) {
+                            this.classList.values.push(className);
+                        }
+                    }
+                }
+            };
+        }
+
+        appendChild(child) {
+            child.parentNode = this;
+            this.children.push(child);
+            return child;
+        }
+
+        removeChild(child) {
+            this.children = this.children.filter(candidate => candidate !== child);
+            child.parentNode = null;
+        }
+
+        setAttribute(name, value) {
+            this.attributes[name] = value;
+        }
+
+        addEventListener(name, listener) {
+            this.listeners[name] = listener;
+        }
+    }
+
+    function createFakeDocument() {
+        const document = {
+            documentElement: null,
+            body: null,
+            createElementNS(namespace, tagName) {
+                return new FakeElement(document, tagName);
+            },
+            getElementById(id) {
+                function find(element) {
+                    if (!element) {
+                        return null;
+                    }
+                    if (element.id === id) {
+                        return element;
+                    }
+                    for (const child of element.children) {
+                        const found = find(child);
+                        if (found) {
+                            return found;
+                        }
+                    }
+                    return null;
+                }
+                return find(document.documentElement);
+            },
+            open() {},
+            write() {
+                this.documentElement = new FakeElement(this, 'html');
+                this.body = new FakeElement(this, 'body');
+                this.documentElement.appendChild(this.body);
+            },
+            close() {}
+        };
+        document.documentElement = new FakeElement(document, 'root');
+        document.body = new FakeElement(document, 'body');
+        document.documentElement.appendChild(document.body);
+        return document;
+    }
+
+    const document = createFakeDocument();
+    const fakeWindow = {
+        document,
+        lastTimeout: null,
+        openedWindows: [],
+        setTimeout(callback, timeout) {
+            this.lastTimeout = timeout;
+            return 1;
+        },
+        clearTimeout() {},
+        focus() {},
+        open() {
+            const child = createFakeWindow();
+            this.openedWindows.push(child);
+            return child;
+        }
+    };
+    return fakeWindow;
+}
+
+function createLegacyFakeWindow() {
     class FakeElement {
         constructor(ownerDocument, tagName) {
             this.ownerDocument = ownerDocument;
@@ -437,6 +569,36 @@ async function testCreateParentItem(context) {
     ZotMeta.updateItemWithRetry = originalUpdateItemWithRetry;
 }
 
+function testControlPanel(context) {
+    const { Services, Zotero, ZotMeta, Utilities } = context;
+    assert.equal(ZotMeta.getConcurrentThreads(), 6);
+    assert.equal(ZotMeta.setConcurrentThreads(14), 12);
+    assert.equal(Services.prefs.values['extensions.zotmeta.concurrentThreads'], 12);
+    assert.equal(ZotMeta.setConcurrentThreads(0), 1);
+    assert.equal(Utilities.getConcurrentThreads(), 1);
+
+    const failed = makeItem({ title: 'Failed' }, 'journalArticle');
+    failed.tags = ['ZotMeta: Failed'];
+    const skipped = makeItem({ title: 'Skipped' }, 'book');
+    skipped.tags = ['ZotMeta: Skipped'];
+    const regular = makeItem({ title: 'Regular' }, 'journalArticle');
+    const attachment = makeAttachment({ title: 'Attachment' });
+    Zotero.Items.all = [failed, skipped, regular, attachment];
+
+    const stats = ZotMeta.getLibraryStats();
+    assert.equal(stats.totalItems, 3);
+    assert.equal(stats.attachments, 1);
+    assert.equal(stats.failed, 1);
+    assert.equal(stats.skipped, 1);
+    assert.deepEqual(plain(stats.typeDistribution.map(type => type.label)), ['journalArticle', 'book']);
+
+    const fakeWindow = createFakeWindow();
+    ZotMeta.id = 'zotmeta@roadtodream.tech';
+    ZotMeta.showControlPanel(fakeWindow);
+    assert.deepEqual(Zotero.Utilities.Internal.openedPreferenceIDs, ['zotmeta-prefpane']);
+    assert.equal(fakeWindow.openedWindows.length, 0);
+}
+
 async function main() {
     const context = loadScripts([
         'src/chrome/content/utilities.js',
@@ -512,6 +674,7 @@ async function main() {
     await testStatusTags(context);
     await testIdentifierExtraction(context);
     await testCreateParentItem(context);
+    testControlPanel(context);
 
     console.log('All tests passed');
 }

@@ -8,8 +8,8 @@
         "zotero": {
             "id": "zotmeta@roadtodream.tech",
             "update_url": "https://raw.githubusercontent.com/RoadToDream/ZotMeta/master/updates.json",
-            "strict_min_version": "6.999",
-            "strict_max_version": "7.0.*"
+            "strict_min_version": "7.0",
+            "strict_max_version": "9.0.*"
         }
     }
 }

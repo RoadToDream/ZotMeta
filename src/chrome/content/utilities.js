@@ -1,5 +1,6 @@
 Utilities = {
     modernProgressStyleID: "zotmeta-progress-style",
+    concurrentThreadsPref: "extensions.zotmeta.concurrentThreads",
     itemSaveQueue: Promise.resolve(),
     failedTag: "ZotMeta: Failed",
     skippedTag: "ZotMeta: Skipped",
@@ -47,11 +48,37 @@ Utilities = {
         doc.documentElement.appendChild(style);
     },
 
+    getConcurrentThreads(defaultValue = 6) {
+        try {
+            if (typeof Services !== 'undefined' && Services.prefs) {
+                return this.clampConcurrentThreads(Services.prefs.getIntPref(this.concurrentThreadsPref, defaultValue));
+            }
+        } catch (error) {}
+        return this.clampConcurrentThreads(defaultValue);
+    },
+
+    setConcurrentThreads(value) {
+        var threads = this.clampConcurrentThreads(value);
+        if (typeof Services !== 'undefined' && Services.prefs) {
+            Services.prefs.setIntPref(this.concurrentThreadsPref, threads);
+        }
+        return threads;
+    },
+
+    clampConcurrentThreads(value) {
+        var threads = parseInt(value, 10);
+        if (isNaN(threads)) {
+            threads = 6;
+        }
+        return Math.min(Math.max(threads, 1), 12);
+    },
+
     createModernProgressHandle(window, title, message) {
         if (!window || !window.document || !window.document.documentElement) {
             return null;
         }
         var doc = window.document;
+        var mount = doc.body || doc.documentElement;
         this.ensureModernProgressStyle(doc);
 
         var panel = this.createElement(doc, "div", "zotmeta-progress-panel");
@@ -82,7 +109,7 @@ Utilities = {
         panel.appendChild(header);
         panel.appendChild(track);
         panel.appendChild(rows);
-        doc.documentElement.appendChild(panel);
+        mount.appendChild(panel);
 
         var handle = {
             type: "modern",
