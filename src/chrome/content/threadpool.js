@@ -2,34 +2,7 @@ class ThreadPool {
     constructor(numThreads) {
         this.numThreads = numThreads;
         this.jobs = [];
-        this.jobsRunning = {
-            _value: 0, 
-            onChangeCallback: null,
-
-            get value() {
-                return this._value;
-            },
-
-            set value(newValue) {
-                var originalValue = this._value;
-                if (newValue !== this._value) {
-                    this._value = newValue;
-                }
-                if (newValue < originalValue) {
-                    if (this.onChangeCallback) {
-                        this.onChangeCallback();
-                    }
-                }
-            },
-
-            setOnChangeCallback(callback) {
-                this.onChangeCallback = callback;
-            },
-        };
-
-        this.jobsRunning.setOnChangeCallback(async () => {
-            await this.fillPool();
-        });
+        this.executionPromise = null;
     }
 
     submit(job) {
@@ -37,24 +10,32 @@ class ThreadPool {
     }
 
     execute() {
-        this.fillPool();
+        if (!this.executionPromise) {
+            this.executionPromise = this.run();
+        }
+        return this.executionPromise;
     }
 
     async wait() {
-        while (this.jobs.length !== 0 || this.jobsRunning.value !== 0) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (!this.executionPromise) {
+            this.execute();
         }
+        await this.executionPromise;
     }
 
-    async fillPool() {
-        for (let index = 0; index < this.numThreads - this.jobsRunning.value; index++) {
-            if (this.jobs.length === 0) {
-                break;
-            }
+    async run() {
+        var workerCount = Math.min(this.numThreads, this.jobs.length);
+        var workers = [];
+        for (let index = 0; index < workerCount; index++) {
+            workers.push(this.runWorker());
+        }
+        await Promise.all(workers);
+    }
+
+    async runWorker() {
+        while (this.jobs.length > 0) {
             const selectedJob = this.jobs.shift();
-            this.jobsRunning.value++;
             await selectedJob();
-            this.jobsRunning.value--;
         }
     }
 }

@@ -16,6 +16,7 @@ async function startup({ id, version, rootURI }) {
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/threadpool.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/journal.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/book.js');
+    Services.scriptloader.loadSubScript(rootURI + 'chrome/content/arxiv.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/zotmeta.js');
     ZotMeta.init({ id, version, rootURI });
     ZotMeta.addToAllWindows();

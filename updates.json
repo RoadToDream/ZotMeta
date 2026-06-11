@@ -5,7 +5,7 @@
         {
           "version": "1.1",
           "update_link": "https://github.com/RoadToDream/ZotMeta/releases/download/v1.1/zotmeta-1.1.xpi",
-          "update_hash": "sha256:1ae3b6fef3f43f6ccd9271e02842b6997357412f8eb5e35002058e103964aac9",
+          "update_hash": "sha256:0b9b156595bf979f90a1e4f941006119904026f63e0cb2471a1bc835bfa0f3d1",
           "applications": {
             "gecko": {
               "strict_min_version": "60.0"

@@ -7,5 +7,6 @@
     <script src="utilities.js"/>
     <script src="journal.js"/>
     <script src="book.js"/>
+    <script src="arxiv.js"/>
     <script src="zotmeta.js"/>
 </overlay>
