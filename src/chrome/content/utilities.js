@@ -4,6 +4,8 @@ Utilities = {
     itemSaveQueue: Promise.resolve(),
     failedTag: "ZotMeta: Failed",
     skippedTag: "ZotMeta: Skipped",
+    journalSourcePref: "extensions.zotmeta.journalSource",
+    tagFailedItemsPref: "extensions.zotmeta.tagFailedItems",
     DOI_RE: /\b10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i,
     ARXIV_RE: /\b(?:arxiv\s*(?:id)?\s*[:：]\s*)?((?:[a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(?:v\d+)?)\b/i,
 
@@ -382,11 +384,44 @@ Utilities = {
         return text.replace(/\s+/g, ' ').trim();
     },
 
+    getJournalSource() {
+        try {
+            var source = Services.prefs.getStringPref(this.journalSourcePref, 'doi-pubmed');
+            return ['doi-pubmed', 'pubmed', 'doi'].includes(source) ? source : 'doi-pubmed';
+        } catch (error) {
+            return 'doi-pubmed';
+        }
+    },
+
+    getJournalSourceOrder() {
+        var source = this.getJournalSource();
+        if (source === 'doi') {
+            return ['doi'];
+        }
+        return source === 'pubmed' ? ['pubmed', 'doi'] : ['doi', 'pubmed'];
+    },
+
+    combineTitleAndSubtitle(title, subtitle) {
+        title = this.normalizeWhitespace(this.decodeHTMLEntities(title || ''));
+        subtitle = this.normalizeWhitespace(this.decodeHTMLEntities(subtitle || ''));
+        if (!title || !subtitle) {
+            return title || subtitle;
+        }
+        var comparableTitle = title.toLowerCase().replace(/[.!?]+$/, '');
+        var comparableSubtitle = subtitle.toLowerCase().replace(/[.!?]+$/, '');
+        var prefix = comparableTitle.slice(0, -comparableSubtitle.length);
+        if (comparableTitle === comparableSubtitle ||
+            (comparableTitle.endsWith(comparableSubtitle) && /[\s:–—-]$/.test(prefix))) {
+            return title;
+        }
+        return title.replace(/[:\s]+$/, '') + ': ' + subtitle;
+    },
+
     applyMetadata(item, metaData, fieldMap) {
         var changed = false;
         for (const metaKey in fieldMap) {
             var value = metaData[metaKey];
-            if (this.isEmpty(value)) {
+            if (value === undefined || value === null || this.isEmpty(value)) {
                 continue;
             }
             var target = fieldMap[metaKey];
@@ -436,6 +471,14 @@ Utilities = {
         return true;
     },
 
+    shouldTagFailedItems() {
+        try {
+            return Services.prefs.getBoolPref(this.tagFailedItemsPref, false);
+        } catch (error) {
+            return false;
+        }
+    },
+
     async markItemUpdateStatus(item, status) {
         var changed = false;
         if (status === 0) {
@@ -446,7 +489,9 @@ Utilities = {
             changed = this.addTagIfMissing(item, this.skippedTag) || changed;
         } else {
             changed = this.removeTagIfPresent(item, this.skippedTag) || changed;
-            changed = this.addTagIfMissing(item, this.failedTag) || changed;
+            if (this.shouldTagFailedItems()) {
+                changed = this.addTagIfMissing(item, this.failedTag) || changed;
+            }
         }
 
         if (changed) {

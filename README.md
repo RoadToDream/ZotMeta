@@ -4,14 +4,15 @@ ZotMeta is a Zotero plugin for enriching item metadata in bulk. It updates journ
 
 ## Features
 
-- Update selected journal article metadata from DOI records.
+- Update selected journal article metadata from DOI records, with PubMed as a fallback and configurable lookup order.
+- Preserve PMID and PMCID in the Extra field alongside existing notes.
 - Update selected book metadata from ISBN records.
 - Update arXiv preprints from arXiv identifiers.
 - Extract DOI and arXiv identifiers from Zotero's PDF full-text cache when the parent item is missing an identifier.
 - Create parent items for selected PDF attachments.
 - Run metadata updates in a shared batch queue with configurable concurrency.
 - Show one consolidated progress panel for overlapping update batches.
-- Tag failed and skipped items with `ZotMeta: Failed` and `ZotMeta: Skipped`.
+- Optionally tag failed updates with `ZotMeta: Failed` (off by default); skipped items use `ZotMeta: Skipped`.
 - View library stats and added-item activity in the ZotMeta settings panel.
 
 ## Screenshots
@@ -34,7 +35,7 @@ Screenshots can be stored in [`docs/screenshots`](docs/screenshots).
 4. Select the downloaded `.xpi` file.
 5. Restart Zotero if prompted.
 
-ZotMeta 2.0 supports Zotero 7.0 through 9.0.x.
+ZotMeta 2.1 declares compatibility with Zotero 7.0 through 10.0.x.
 
 ## Usage
 
@@ -46,11 +47,29 @@ ZotMeta 2.0 supports Zotero 7.0 through 9.0.x.
 
 ZotMeta will enrich supported items:
 
-- `journalArticle` items use DOI metadata.
+- `journalArticle` items use DOI first, with PubMed metadata as a fallback by default.
 - `book` items use ISBN metadata.
-- arXiv-like preprints use arXiv metadata.
+- arXiv-like preprints use arXiv metadata, with an arXiv DOI fallback if the API fails.
 
 If an item has no DOI or arXiv ID, ZotMeta can try to discover one from the item's PDF full-text cache.
+
+PubMed lookups use the item's DOI, a `PMID: <number>` or `PMCID: PMC<number>` line in Extra,
+or a PubMed/PMC article URL. PMID-only and PMCID-only journal items are supported. ZotMeta
+checks returned identifiers before applying metadata. Sources are tried in the configured
+order until one returns metadata; failed requests and missing matches trigger the fallback.
+No title-only matching is performed, and successful results are not merged with the fallback source.
+PubMed supplies abstracts and biomedical identifiers as well as citation fields. Existing
+fields are retained when the source has no value. PubMed requests share a rate-limited queue
+across batch workers. Books and arXiv items continue to use their existing sources.
+
+Books use Open Library's ISBN/edition API, including separate author records. Book requests
+share a queue limited to one request per second, and author records are cached for the session.
+Titles include subtitles when supplied; missing fields and unresolved authors retain existing values.
+
+arXiv identifiers can also come from a `10.48550/arXiv.<ID>` DOI. arXiv API requests are
+queued at one request every three seconds. If the API fails or returns no matching record,
+ZotMeta tries the arXiv DOI's metadata. For explicitly versioned identifiers (such as
+`2403.18103v1`), the DOI response must report the same version before metadata is applied.
 
 ### Create Parent Item
 
@@ -67,19 +86,25 @@ Open `Tools -> ZotMeta Control Panel`.
 The panel includes:
 
 - Concurrent update thread count
+- Journal lookup order: `DOI first, PubMed fallback` (default), `PubMed first, DOI fallback`, or `DOI only`
+- Tag failed updates (off by default)
 - Item stats
 - Item type distribution
 - Added-item activity by calendar year
 - Project link
 
+Click `Save settings` after changing these options. `DOI only` disables PubMed requests.
+Previously saved source selections are retained when updating the plugin.
+
 ## Update Status Tags
 
 ZotMeta adds tags to make follow-up easier:
 
-- `ZotMeta: Failed` for items where metadata retrieval or saving failed.
+- `ZotMeta: Failed` for items where metadata retrieval or saving failed, only when **Tag failed updates** is enabled in settings. This option defaults to off.
 - `ZotMeta: Skipped` for unsupported or unchanged items.
 
 Successful updates remove these status tags from the item.
+Disabling failure tagging stops new failure tags; it does not clear existing tags.
 
 ## Development
 
@@ -103,8 +128,8 @@ The build artifact is written to `build/zotmeta-<version>.xpi`.
 2. Tag the release, for example:
 
 ```bash
-git tag v2.0
-git push origin v2.0
+git tag v2.1
+git push origin v2.1
 ```
 
 3. GitHub Actions builds and publishes the release XPI.

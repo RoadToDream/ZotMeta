@@ -1,4 +1,28 @@
 Arxiv = {
+    requestQueue: Promise.resolve(),
+    lastRequestTime: 0,
+    requestInterval: 3000,
+
+    requestMetadata(arxivID) {
+        // arXiv permits one connection and one request every three seconds.
+        var request = this.requestQueue.then(async () => {
+            var wait = this.requestInterval - (Date.now() - this.lastRequestTime);
+            if (wait > 0) {
+                await Utilities.delay(wait);
+            }
+            this.lastRequestTime = Date.now();
+            var url = 'https://export.arxiv.org/api/query?id_list=' + encodeURIComponent(arxivID);
+            var response = await Utilities.fetchWithTimeout(url, { method: 'GET' }, 10000);
+            if (!response || !response.ok) {
+                Zotero.debug('ZotMeta: arXiv lookup failed (' + (response ? response.status : 'no response') + ')');
+                return null;
+            }
+            return response.text();
+        });
+        this.requestQueue = request.catch(() => {});
+        return request;
+    },
+
     generateAuthor(name) {
         if (!name) {
             return null;
@@ -76,6 +100,12 @@ Arxiv = {
         return match ? match[1] : null;
     },
 
+    getArxivIDFromDOI(value) {
+        var match = PubMed.normalizeDOI(value).match(/^10\.48550\/arxiv\.(.+)$/i);
+        var id = match ? this.normalizeArxivID(match[1]) : null;
+        return id && id === match[1] ? id : null;
+    },
+
     getArxivID(item) {
         var archiveID = item.getField('archiveID');
         var arxivID = this.normalizeArxivID(archiveID);
@@ -97,19 +127,69 @@ Arxiv = {
             return arxivID;
         }
 
+        arxivID = this.getArxivIDFromDOI(item.getField('DOI')) || this.getArxivIDFromDOI(url);
+        if (arxivID) {
+            return arxivID;
+        }
+
         return null;
     },
 
-    getMetaData(item) {
+    async getMetaData(item) {
         var arxivID = this.getArxivID(item);
         if (!arxivID) {
             return null;
         }
+        try {
+            var metadata = await this.getAtomMetaData(arxivID);
+            if (metadata) {
+                return metadata;
+            }
+        } catch (error) {
+            Zotero.debug('ZotMeta: arXiv lookup failed; trying DOI metadata: ' + error);
+        }
+        try {
+            return await this.getDOIMetaData(item, arxivID);
+        } catch (error) {
+            Zotero.debug('ZotMeta: arXiv DOI lookup failed: ' + error);
+            return null;
+        }
+    },
 
-        var url = 'https://export.arxiv.org/api/query?id_list=' + encodeURIComponent(arxivID);
-        return Utilities.fetchWithTimeout(url, { method: 'GET' }, 10000)
-            .then(response => Utilities.responseTextOrNull(response, "Error retrieving metadata",
-                "Please check if the arXiv ID is correct and if you have network access to arxiv.org."))
+    async getDOIMetaData(item, arxivID) {
+        // The DOI describes the latest version; require a match for a pinned v1/v2/etc.
+        var version = arxivID.match(/v(\d+)$/i);
+        var doi = '10.48550/arXiv.' + arxivID.replace(/v\d+$/i, '');
+        var response = await Utilities.fetchWithTimeout('https://doi.org/' + doi, {
+            method: 'GET', headers: new Headers({ Accept: 'application/vnd.citationstyles.csl+json' })
+        }, 10000);
+        var data = Utilities.parseJsonOrNull(await Utilities.responseTextOrNull(response));
+        if (!data || !data.title || PubMed.normalizeDOI(data.DOI).toLowerCase() !== doi.toLowerCase()) {
+            return null;
+        }
+        if (version && String(data.version) !== version[1]) {
+            return null;
+        }
+        var date = Journal.getPublicationDate(data);
+        var existingDate = item.getField('date') || '';
+        // DataCite may supply only a year; keep an existing date with finer precision.
+        if (date && /^\d{4}$/.test(date) && existingDate.startsWith(date + '-')) {
+            date = '';
+        }
+        return {
+            Title: Journal.generateTitle(data),
+            Authors: Journal.generateAuthors(data.author),
+            PublishDate: date || '',
+            Abstract: Utilities.normalizeWhitespace(data.abstract || ''),
+            DOI: item.getField('DOI') ? '' : doi,
+            Repository: 'arXiv',
+            ArchiveID: 'arXiv:' + arxivID,
+            URL: 'https://arxiv.org/abs/' + arxivID
+        };
+    },
+
+    getAtomMetaData(arxivID) {
+        return this.requestMetadata(arxivID)
             .then(data => {
                 if (!data) {
                     return null;
@@ -124,8 +204,16 @@ Arxiv = {
                     if (!entry) {
                         return null;
                     }
+                    var returnedID = this.normalizeArxivID(this.getTextContent(entry, 'id'));
+                    if (!returnedID || returnedID.replace(/v\d+$/i, '') !== arxivID.replace(/v\d+$/i, '') ||
+                        (/v\d+$/i.test(arxivID) && returnedID !== arxivID)) {
+                        return null;
+                    }
 
                     var Title = this.getTextContent(entry, 'title');
+                    if (!Title) {
+                        return null;
+                    }
                     var Authors = this.generateAuthors(entry.getElementsByTagName('author'));
                     var PublishDate = this.generateDate(this.getTextContent(entry, 'published'));
                     var Abstract = this.getTextContent(entry, 'summary');

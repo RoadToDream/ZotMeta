@@ -1,5 +1,7 @@
 var ZotMetaPreferences = {
     concurrentThreadsPref: "extensions.zotmeta.concurrentThreads",
+    journalSourcePref: "extensions.zotmeta.journalSource",
+    tagFailedItemsPref: "extensions.zotmeta.tagFailedItems",
     failedTag: "ZotMeta: Failed",
     skippedTag: "ZotMeta: Skipped",
 
@@ -94,12 +96,25 @@ var ZotMetaPreferences = {
         var range = document.getElementById("zotmeta-pref-concurrent-range");
         var number = document.getElementById("zotmeta-pref-concurrent-number");
         var save = document.getElementById("zotmeta-pref-save");
-        if (!range || !number || !save) {
+        var source = document.getElementById("zotmeta-pref-journal-source");
+        var tagFailed = document.getElementById("zotmeta-pref-tag-failed");
+        if (!range || !number || !save || !source || !tagFailed) {
             return;
         }
         var threads = this.getConcurrentThreads();
         range.value = threads;
         number.value = threads;
+        try {
+            var savedSource = Services.prefs.getStringPref(this.journalSourcePref, 'doi-pubmed');
+            source.value = ['doi-pubmed', 'pubmed', 'doi'].includes(savedSource) ? savedSource : 'doi-pubmed';
+        } catch (error) {
+            source.value = 'doi-pubmed';
+        }
+        try {
+            tagFailed.checked = Services.prefs.getBoolPref(this.tagFailedItemsPref, false);
+        } catch (error) {
+            tagFailed.checked = false;
+        }
 
         if (this.settingsBound) {
             return;
@@ -115,6 +130,9 @@ var ZotMetaPreferences = {
             var savedThreads = this.setConcurrentThreads(number.value);
             range.value = savedThreads;
             number.value = savedThreads;
+            Services.prefs.setStringPref(this.journalSourcePref,
+                ['doi-pubmed', 'pubmed', 'doi'].includes(source.value) ? source.value : 'doi-pubmed');
+            Services.prefs.setBoolPref(this.tagFailedItemsPref, tagFailed.checked);
         });
     },
 

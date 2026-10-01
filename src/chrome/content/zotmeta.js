@@ -165,7 +165,10 @@ ZotMeta = {
         if (!Utilities.isRegularItem(item)) {
             return;
         }
-        var needsDOI = item.itemTypeID === Zotero.ItemTypes.getID('journalArticle') && !item.getField('DOI');
+        var isJournalArticle = item.itemTypeID === Zotero.ItemTypes.getID('journalArticle');
+        var pubmedIdentifiers = isJournalArticle ? PubMed.getIdentifiers(item) : {};
+        var needsDOI = isJournalArticle && !item.getField('DOI') &&
+            !(Utilities.getJournalSourceOrder().includes('pubmed') && (pubmedIdentifiers.PMID || pubmedIdentifiers.PMCID));
         var needsArxiv = item.itemTypeID === Zotero.ItemTypes.getID('preprint') && !Arxiv.getArxivID(item);
         if (!needsDOI && !needsArxiv) {
             return;
@@ -295,14 +298,13 @@ ZotMeta = {
     async processUpdateTask(task) {
         var item = task.item;
         var batch = task.batch;
-        await this.prepareItemForMetadataUpdate(item);
-        var updater = this.getMetadataUpdater(item);
-        if (!updater) {
-            await this.recordUpdateResult(batch, item, 2);
-            return;
-        }
-
         try {
+            await this.prepareItemForMetadataUpdate(item);
+            var updater = this.getMetadataUpdater(item);
+            if (!updater) {
+                await this.recordUpdateResult(batch, item, 2);
+                return;
+            }
             var status = await this.updateItemWithRetry(updater, item);
             await this.recordUpdateResult(batch, item, status);
         } catch (error) {

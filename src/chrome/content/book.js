@@ -1,4 +1,58 @@
 Book = {
+    requestQueue: Promise.resolve(),
+    lastRequestTime: 0,
+    requestInterval: 1000,
+    authorCache: new Map(),
+
+    request(path) {
+        // Share the one-request-per-second allowance across all book workers.
+        var request = this.requestQueue.then(async () => {
+            var wait = this.requestInterval - (Date.now() - this.lastRequestTime);
+            if (wait > 0) {
+                await Utilities.delay(wait);
+            }
+            this.lastRequestTime = Date.now();
+            var response = await Utilities.fetchWithTimeout('https://openlibrary.org' + path,
+                { method: 'GET' }, 10000);
+            if (!response || !response.ok) {
+                Zotero.debug('ZotMeta: Open Library request failed (' +
+                    (response ? response.status : 'no response') + '): ' + path);
+                return null;
+            }
+            var data = Utilities.parseJsonOrNull(await response.text());
+            if (!data) {
+                Zotero.debug('ZotMeta: Open Library returned invalid JSON: ' + path);
+            }
+            return data;
+        }).catch(error => {
+            Zotero.debug('ZotMeta: Open Library request failed: ' + path + ': ' + error);
+            return null;
+        });
+        this.requestQueue = request;
+        return request;
+    },
+
+    async getAuthor(author) {
+        if (author && author.name) {
+            return author;
+        }
+        var key = author && author.key;
+        if (!key || !/^\/authors\/OL\d+A$/.test(key)) {
+            return null;
+        }
+        if (!this.authorCache.has(key)) {
+            var request = this.request(key + '.json').then(data => {
+                if (!data || !data.name) {
+                    this.authorCache.delete(key);
+                    return null;
+                }
+                return data;
+            });
+            this.authorCache.set(key, request);
+        }
+        return this.authorCache.get(key);
+    },
+
     generateAuthor(author) {
         if (!Utilities.safeGetFromJson(author, ["name"])) {
             return null;
@@ -46,44 +100,33 @@ Book = {
         }
     },
 
-    getMetaData (item) {
+    async getMetaData(item) {
         if (item.itemTypeID !== Zotero.ItemTypes.getID('book')) {
             // Utilities.publishError("Unsupported Item Type", "Only Book is supported.")
             return null;
         }
         var rawISBN = item.getField('ISBN');
-        var isbn = rawISBN ? rawISBN.replace(/[\s-]/g, '') : '';
+        var isbn = rawISBN ? rawISBN.replace(/[\s-]/g, '').toUpperCase() : '';
         if (!isbn) {
             // Utilities.publishError("DOI not found", "DOI is required to retrieve metadata.")
             return null;
         }
 
-        var url = 'https://openlibrary.org/api/books?jscmd=data&format=json&bibkeys=ISBN:' + isbn;
-        var requestInfo = { method: 'GET' };
-        return Utilities.fetchWithTimeout(url, requestInfo, 10000)
-            .then(response => Utilities.responseTextOrNull(response, "Error retrieving metadata",
-                "Please check if ISBN is correct and if you have network access to openlibrary.org."))
-            .then(data => data ? Utilities.parseJsonOrNull(data) : null)
-            .then(dataJson => {
-                var KeyISBN = 'ISBN:' + isbn;
-                if (!Utilities.safeGetFromJson(dataJson, [KeyISBN])) {
-                    return null;
-                }
-                var Title = Utilities.safeGetFromJson(dataJson, [KeyISBN, "title"]);
-                var Authors = this.generateAuthors(Utilities.safeGetFromJson(dataJson, [KeyISBN, "authors"]));
-                var Publisher = Utilities.safeGetFromJson(dataJson, [KeyISBN, "publishers","0","name"]);
-                var PublishPlace = Utilities.safeGetFromJson(dataJson, [KeyISBN, "publish_places","0","name"]);
-                var PublishDate = Utilities.safeGetFromJson(dataJson, [KeyISBN, "publish_date"]);
-                var Pages = Utilities.safeGetFromJson(dataJson, [KeyISBN, "number_of_pages"]);
-                return {
-                            "Title": Title ? Title : "",
-                            "Authors": Authors ? Authors : "",
-                            "Publisher": Publisher ? Publisher : "",
-                            "PublishPlace": PublishPlace ? PublishPlace : "",
-                            "PublishDate": PublishDate ? PublishDate : "",
-                            "Pages": Pages ? Pages : ""
-                        };
-            });
+        // The legacy /api/books endpoint can return 404 even for existing editions.
+        var edition = await this.request('/isbn/' + encodeURIComponent(isbn) + '.json');
+        if (!edition || !edition.title) {
+            return null;
+        }
+        var authors = await Promise.all((edition.authors || []).map(author => this.getAuthor(author)));
+        return {
+            Title: Utilities.combineTitleAndSubtitle(edition.title, edition.subtitle),
+            // Preserve existing creators if any author record could not be resolved.
+            Authors: authors.every(author => author) ? this.generateAuthors(authors) : [],
+            Publisher: Utilities.safeGetFromJson(edition, ['publishers', '0']) || '',
+            PublishPlace: Utilities.safeGetFromJson(edition, ['publish_places', '0']) || '',
+            PublishDate: edition.publish_date || '',
+            Pages: edition.number_of_pages || (/^\d+$/.test(edition.pagination || '') ? edition.pagination : '')
+        };
     },
 
     async updateMetadata(item) {
