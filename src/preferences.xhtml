@@ -143,6 +143,22 @@
             width: 56px;
         }
 
+        .zotmeta-pref-select {
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, .16);
+            border-radius: 6px;
+            color: inherit;
+            flex: 1;
+            font: inherit;
+            min-width: 0;
+            padding: 6px 8px;
+        }
+
+        .zotmeta-pref-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+
         .zotmeta-pref-button {
             align-items: center;
             background: #2563eb;
@@ -265,10 +281,28 @@
     <html:div class="zotmeta-pref-section">
         <html:div class="zotmeta-pref-section-title">Settings</html:div>
         <html:div class="zotmeta-pref-setting">
+            <html:label class="zotmeta-pref-setting-label" for="zotmeta-pref-journal-source">Journal lookup order</html:label>
+            <html:select id="zotmeta-pref-journal-source" class="zotmeta-pref-select" aria-describedby="zotmeta-pref-journal-help">
+                <html:option value="doi-pubmed">DOI first, PubMed fallback</html:option>
+                <html:option value="pubmed">PubMed first, DOI fallback</html:option>
+                <html:option value="doi">DOI only</html:option>
+            </html:select>
+        </html:div>
+        <html:div id="zotmeta-pref-journal-help" class="zotmeta-pref-subtitle">Uses the first source with available metadata. Tries the fallback if the first source has no match or the request fails.</html:div>
+        <html:div class="zotmeta-pref-setting">
             <html:div class="zotmeta-pref-setting-label">Concurrent update threads</html:div>
             <html:input id="zotmeta-pref-concurrent-range" type="range" min="1" max="12"/>
             <html:input id="zotmeta-pref-concurrent-number" class="zotmeta-pref-number" type="number" min="1" max="12"/>
-            <html:button id="zotmeta-pref-save" class="zotmeta-pref-button" type="button">Save</html:button>
+        </html:div>
+        <html:div class="zotmeta-pref-setting">
+            <html:input id="zotmeta-pref-tag-failed" type="checkbox" aria-describedby="zotmeta-pref-tag-failed-help"/>
+            <html:div>
+                <html:label for="zotmeta-pref-tag-failed">Tag failed updates</html:label>
+                <html:div id="zotmeta-pref-tag-failed-help" class="zotmeta-pref-subtitle">Add the tag “ZotMeta: Failed” to failed items so you can filter them later. Off by default.</html:div>
+            </html:div>
+        </html:div>
+        <html:div class="zotmeta-pref-actions">
+            <html:button id="zotmeta-pref-save" class="zotmeta-pref-button" type="button">Save settings</html:button>
         </html:div>
     </html:div>
 

@@ -67,16 +67,28 @@ Journal = {
         var Title = this.getFirstText(Utilities.safeGetFromJson(dataJson, ["title"]));
         var Subtitle = this.getFirstText(Utilities.safeGetFromJson(dataJson, ["subtitle"]));
 
-        if (Title && Subtitle && Title.indexOf(Subtitle) === -1) {
-            Title = Title + ": " + Subtitle;
-        } else if (!Title && Subtitle) {
-            Title = Subtitle;
-        }
-
-        return Utilities.decodeHTMLEntities(Title);
+        return Utilities.combineTitleAndSubtitle(Title, Subtitle);
     },
 
-    getMetaData (item) {
+    async getMetaData(item) {
+        if (item.itemTypeID !== Zotero.ItemTypes.getID('journalArticle')) {
+            return null;
+        }
+        for (var source of Utilities.getJournalSourceOrder()) {
+            try {
+                var metadata = source === 'doi' ? await this.getDOIMetaData(item) : await PubMed.getMetaData(item);
+                if (metadata && Object.values(metadata).some(value =>
+                    value !== undefined && value !== null && !Utilities.isEmpty(value))) {
+                    return metadata;
+                }
+            } catch (error) {
+                Zotero.debug('ZotMeta: ' + source + ' lookup failed: ' + error);
+            }
+        }
+        return null;
+    },
+
+    getDOIMetaData(item) {
         if (item.itemTypeID !== Zotero.ItemTypes.getID('journalArticle')) {
             // Utilities.publishError("Unsupported Item Type", "Only Journal Article is supported.")
             return null;
@@ -86,9 +98,9 @@ Journal = {
             // Utilities.publishError("DOI not found", "DOI is required to retrieve metadata.")
             return null;
         }
-        doi = doi.trim();
+        doi = PubMed.normalizeDOI(doi);
 
-        var url = 'https://doi.org/' + doi;
+        var url = 'https://doi.org/' + encodeURI(doi).replace(/\?/g, '%3F').replace(/#/g, '%23');
         const headers = new Headers({'Accept': 'application/vnd.citationstyles.csl+json'});
         var requestInfo = { method: 'GET', headers };
         return Utilities.fetchWithTimeout(url, requestInfo, 10000)
@@ -137,8 +149,11 @@ Journal = {
             "Pages": "pages",
             "PublishDate": "date",
             "JournalAbbr": "journalAbbreviation",
-            "Language": "language"
+            "Language": "language",
+            "Abstract": "abstractNote",
+            "DOI": "DOI"
         });
+        changed = PubMed.applyIdentifiers(item, metaData) || changed;
         if (!changed) {
             return 1;
         }

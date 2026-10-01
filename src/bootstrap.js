@@ -24,6 +24,7 @@ async function startup({ id, version, rootURI }) {
     // Load chrome/content file directly via file:/// URL
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/utilities.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/threadpool.js');
+    Services.scriptloader.loadSubScript(rootURI + 'chrome/content/pubmed.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/journal.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/book.js');
     Services.scriptloader.loadSubScript(rootURI + 'chrome/content/arxiv.js');
