@@ -5,7 +5,7 @@
         {
           "version": "2.1",
           "update_link": "https://github.com/RoadToDream/ZotMeta/releases/download/v2.1/zotmeta-2.1.xpi",
-          "update_hash": "sha256:6fbdf0e2832e4d4812d3309c3d5bd518e182b8261f63d2732b0d4a4e97f163f5",
+          "update_hash": "sha256:2a20b823119cd3348afe03ed1d0ad099d2f6ab8d8d6f48389fdf03ef506fc99e",
           "applications": {
             "gecko": {
               "strict_min_version": "60.0"
