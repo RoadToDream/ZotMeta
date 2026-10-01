@@ -124,17 +124,36 @@ The build artifact is written to `build/zotmeta-<version>.xpi`.
 
 ## Release Flow
 
+Zotero checks the `update_url` in `src/manifest.json`, which points to
+`https://raw.githubusercontent.com/RoadToDream/ZotMeta/master/updates.json`.
+That file supplies the available version, supported Zotero versions, XPI download URL,
+and SHA-256 hash. Publishing an XPI alone does not update this manifest.
+
 1. Merge code and version changes.
-2. Tag the release, for example:
+2. Tag the merged commit on `master`, for example:
 
 ```bash
+git switch master
+git pull --ff-only origin master
 git tag v2.1
 git push origin v2.1
 ```
 
-3. GitHub Actions builds and publishes the release XPI.
-4. GitHub Actions opens a follow-up PR containing the generated `updates.json`.
+3. The `Release` workflow runs tests, builds the XPI, and generates `updates.json`
+   with the SHA-256 hash of that exact XPI. It then publishes the XPI to GitHub Releases.
+4. GitHub Actions opens a follow-up PR containing the generated `updates.json`,
+   including its release download URL, version, compatibility, and hash.
 5. Merge the `updates.json` PR to notify existing users through Zotero's update system.
+
+`make` also generates a hash for local builds. A fresh GitHub Actions build can have
+different ZIP bytes, so the release workflow's generated hash must be used for the
+published XPI. Do not substitute a local build's hash in the release metadata PR.
+Pushing a development branch does not publish a release; pushing a version tag does.
+
+The workflow declares `contents: write` and `pull-requests: write`. In the repository's
+**Settings -> Actions -> General -> Workflow permissions**, also enable
+**Allow GitHub Actions to create and approve pull requests** so the metadata PR can
+be opened. See the [create-pull-request permissions documentation](https://github.com/peter-evans/create-pull-request#workflow-permissions).
 
 ## Credits
 
